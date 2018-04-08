@@ -34,6 +34,7 @@ DATASET.label_map = {
     'nsp_xn' : 11,
     'nsp_gg' : 12,
 }
+DATASET.num_classes = 12 + 1
 DATASET.train_split_num = {
     # train_nums = 1700 (400 + 900 + 400)
     # test_nums = 369 (70 + 184 + 115)
@@ -46,6 +47,16 @@ DATASET.train_split_num = {
 # Training configuration
 # ======================
 TRAIN = edict()
-TRAIN.batch_size = 1  # 3D volume
-TRAIN.num_workers = 4
-TRAIN.shuffle = True
+TRAIN.experiment_root = Path.home() / 'Lab/pytorch/spatial-temporal-panel'
+TRAIN.checkpoint_root = TRAIN.experiment_root / 'checkpoints'
+TRAIN.result_root = TRAIN.experiment_root / 'results'
+TRAIN.list_root = TRAIN.experiment_root / 'list'
+
+TRAIN.batch_size = 8  # 3D volume
+TRAIN.num_workers = 1
+TRAIN.seed = 714
+TRAIN.compress = 150
+TRAIN.expect_epoch = 1000
+TRAIN.plot_interval = 10
+TRAIN.val_interval = 10
+TRAIN.save_interval = 100

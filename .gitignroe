@@ -7,8 +7,8 @@ __pycache__/
 *.ipynb_checkpoints
 
 # Source data
-data/
-debug/
+data
+debug
 
 # PyCharm
 .idea

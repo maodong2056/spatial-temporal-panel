@@ -5,9 +5,10 @@ from pathlib import Path
 
 import torch
 import torch.utils.data as data
+from torch.utils.data.dataloader import default_collate
 
 
-def load_volume_and_labels(list_name, target_size=(112, 112)):
+def load_volume_and_labels(list_name, target_size=(128, 128)):
     """Load video volume via list_name, which contains multiple lines of <path, label> pair
         `/path/to/image/KLAC0421_043.jpg 8`
         `/path/to/image/KLAC0421_044.jpg 2`
@@ -36,8 +37,11 @@ def load_volume_and_labels(list_name, target_size=(112, 112)):
 
 
 class PanelDataset(data.Dataset):
-    def __init__(self, list_root='list', stage='train'):
+    def __init__(self, list_root='list', stage='train', fixed_length=64, compress=100):
         """Assume texts of <image_path, label> is in directory 'list/train' or 'list/test'
+        Args:
+            fixed_length: sample the fixed length of videos for convenient upsample
+            compress: compress Dataloader size, for faster epoch
             1. Read one data from file (e.g. using numpy.fromfile, PIL.Image.open).
             2. Preprocess the data (e.g. torchvision.Transform).
             3. Return a data pair (e.g. volume and label).
@@ -45,14 +49,31 @@ class PanelDataset(data.Dataset):
         super(PanelDataset, self).__init__()
         self.list_root = Path(list_root)
         self.stage = stage
+        self.fixed_length = fixed_length
+        self.compress = compress
         self.video_paths = list((self.list_root / stage).iterdir())
 
     def __getitem__(self, index):
         # Set random seed for random augment.
         np.random.seed(int(time.time()))
+        index += np.random.choice(self.compress, 1)[0] * (len(self.video_paths) // self.compress)
 
         # Load volume and label via list
         volume, label = load_volume_and_labels(self.video_paths[index])
+
+        # Slice the fixed length
+        sample_range = volume.shape[0] - self.fixed_length
+        while sample_range < 0:
+            volume = np.concatenate([volume, volume])
+            label = np.concatenate([label, label])
+            sample_range = volume.shape[0] - self.fixed_length
+
+        if sample_range == 0:
+            start_i = 0
+        else:
+            start_i = np.random.randint(low=0, high=sample_range)
+        selected = slice(start_i, start_i + self.fixed_length)
+        volume, label = volume[selected], label[selected]
 
         # Currently without augmentation
         # Trans to tensor [Channel(1), Depth, Height, Width]
@@ -61,7 +82,12 @@ class PanelDataset(data.Dataset):
         return volume, label
 
     def __len__(self):
-        return len(self.video_paths)
+        return len(self.video_paths) // self.compress
+
+
+def collate_fn(batch):
+    batch = [x for x in batch if x is not None]
+    return default_collate(batch)
 
 
 if __name__ == '__main__':
